@@ -1,14 +1,19 @@
-import pyserial
-import modbus_tk
+import serial
+import simSerial
 import Queue
-import Threading
+#import Threading
 import logging
+import modbus_tk
+import modbus_tk.modbus_rtu as tkRtu
+import modbus_tk.defines as cst
+
+
 
 # set up logging to file - see previous section for more details
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M',
-                    filename='/temp/myapp.log',
+                    filename='logga.log',
                     filemode='w')
 # define a Handler which writes INFO messages or higher to the sys.stderr
 console = logging.StreamHandler()
@@ -21,7 +26,7 @@ console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)
 
 # Now, we can log to the root logger, or any other logger. First the root...
-logging.info('Jackdaws love my big sphinx of quartz.')
+logging.info('------Starting--------')
 
 # Now, define a couple of other loggers which might represent areas in your
 # application:
@@ -30,4 +35,17 @@ logger1 = logging.getLogger('myapp.area1')
 logger2 = logging.getLogger('myapp.area2')
 
 
-#create ts
+#test serial
+portNbr = 4
+baudrate = 9600
+
+try:
+    master = tkRtu.RtuMaster(simSerial.simSerial(port=portNbr, baudrate=baudrate))
+    master.set_timeout(5.0)
+    master.set_verbose(True)
+    logging.info("connected")
+
+    logging.info(master.execute(1, cst.READ_HOLDING_REGISTERS, 100, 3))
+
+except modbus_tk.modbus.ModbusError, e:
+        logging.error("%s- Code=%d" % (e, e.get_exception_code()))
