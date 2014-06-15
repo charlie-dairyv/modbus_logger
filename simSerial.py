@@ -1,13 +1,17 @@
-import os, pty, serial, sys
+import os, pty, serial, sys, logging
 
 
 class simSerial(object):
-    def __init__(self, baudrate=9600, timeout=None, *args, **kwargs):
+    def __init__(self, port=None, baudrate=9600, timeout=None, logger=None, *args, **kwargs):
         self.master, slave = pty.openpty()
         self.s_name = os.ttyname(slave)
         self.ser = serial.Serial(self.s_name)
         self.baudrate = baudrate
         self.ser.setTimeout(timeout)
+
+        loggername = 'simSerial{0}'.format(self.s_name[-2:])
+        self.logger = logger or logging.getLogger(loggername)
+        self.logger.info('Initializing simSerial at {0}'.format(self.s_name))
 
     @property
     def name(self):
@@ -51,4 +55,5 @@ class simSerial(object):
 
     @timeout.setter
     def timeout(self, value):
+        self.logger.debug("Timeout set to {0}".format(value))
         self.ser.setTimeout(value)

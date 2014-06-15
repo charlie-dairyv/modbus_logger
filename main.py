@@ -23,7 +23,8 @@ formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
 # tell the handler to use this format
 console.setFormatter(formatter)
 # add the handler to the root logger
-logging.getLogger('').addHandler(console)
+logger = logging.getLogger('pilot_app')
+logger.addHandler(console)
 
 # Now, we can log to the root logger, or any other logger. First the root...
 logging.info('------Starting--------')
@@ -43,9 +44,9 @@ try:
     master = tkRtu.RtuMaster(simSerial.simSerial(port=portNbr, baudrate=baudrate))
     master.set_timeout(5.0)
     master.set_verbose(True)
-    logging.info("connected")
+    logger.info("connected")
 
-    logging.info(master.execute(1, cst.READ_HOLDING_REGISTERS, 100, 3))
+    logger.info(master.execute(1, cst.READ_HOLDING_REGISTERS, 100, 3))
 
 except modbus_tk.modbus.ModbusError, e:
-        logging.error("%s- Code=%d" % (e, e.get_exception_code()))
+        logger.error("%s- Code=%d" % (e, e.get_exception_code()))
