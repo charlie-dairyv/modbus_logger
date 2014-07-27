@@ -1,11 +1,16 @@
+from __future__ import print_function
 import serial
 import simSerial
 import Queue
-#import Threading
+import threading
 import logging
 import modbus_tk
 import modbus_tk.modbus_rtu as tkRtu
 import modbus_tk.defines as cst
+# ---- module stuff -----
+import ModelDevice as Device
+import Model
+from random import random
 
 
 
@@ -23,11 +28,11 @@ formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
 # tell the handler to use this format
 console.setFormatter(formatter)
 # add the handler to the root logger
-logger = logging.getLogger('pilot_app')
+logger = logging.getLogger(__name__)
 logger.addHandler(console)
 
 # Now, we can log to the root logger, or any other logger. First the root...
-logging.info('------Starting--------')
+logger.info('------Starting--------')
 
 # Now, define a couple of other loggers which might represent areas in your
 # application:
@@ -40,13 +45,12 @@ logger2 = logging.getLogger('myapp.area2')
 portNbr = 4
 baudrate = 9600
 
-try:
-    master = tkRtu.RtuMaster(simSerial.simSerial(port=portNbr, baudrate=baudrate))
-    master.set_timeout(5.0)
-    master.set_verbose(True)
-    logger.info("connected")
+#----- MAIN -----
 
-    logger.info(master.execute(1, cst.READ_HOLDING_REGISTERS, 100, 3))
+testDevice = Device.Device(random)
+testDummy = Device.Dummy(random)
+testModel = Model.Model()
 
-except modbus_tk.modbus.ModbusError, e:
-        logger.error("%s- Code=%d" % (e, e.get_exception_code()))
+testModel.add_device(testDummy, testDummy.getPV)
+#testModel.clock.subscribe(testModel.clock.zort)
+testModel.start()

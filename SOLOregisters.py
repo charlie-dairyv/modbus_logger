@@ -1,4 +1,11 @@
-holding_registers = {"PV":  4096,
+import serial
+
+serial_settings = {"baudrate": 9600,
+    "parity": serial.PARITY_EVEN,
+    "stopbits": serial.STOPBITS_ONE,
+    "bytesize": serial.EIGHTBITS}
+
+holding_registers = {"PV":  4097,
 "SV":   44098,
 "Input Range High": 44099,
 "Input Range Low":  44100,
