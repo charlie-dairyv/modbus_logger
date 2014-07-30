@@ -11,6 +11,9 @@ import modbus_tk.defines as tkCst
 from collections import namedtuple
 import SOLOregisters
 
+logger = logging.getLogger(__name__)
+
+EventData = namedtuple('EventData',['time', 'device', 'value'])
 
 class Event(object):
     pass
@@ -20,11 +23,16 @@ class Observable(object):
     def __init__(self):
         self.callbacks = []
 
-    def subscribe(self, callback):
+    def subscribe(self, callback, parent=None):
+        logger.debug("Subscibing %s to %s" % (callback, self))
         self.callbacks.append(callback)
+        logger.debug("Callbacks of %s:\n\t\t\t\t %s" % (self, self.callbacks))
+
 
     def unsubscribe(self, callback):
         self.callbacks.remove(callback)
+        logger.debug("Callbacks of %s:\n\t\t\t\t %s" % (self, self.callbacks))
+
 
     def fire(self, **attrs):
         e = Event()
@@ -34,7 +42,8 @@ class Observable(object):
             setattr(e, k, v)
         for fn in self.callbacks:
             #pass event (w/ attrs) to functions
-            return fn(e)
+            logger.debug("Firing %s" % fn)
+            fn(e)
 
 class Heartbeat(Observable):
     def __init__(self, interval=1, **kwargs):
@@ -58,45 +67,83 @@ class RecordingHeartbeat(Heartbeat):
         super(RecordingHeartbeat, self).__init__()
         self.interval = interval
         self.kwargs = kwargs
-    #TODO Move threading code inside of class
-    def run(self):
-        while True:
-            try:
-                reply = self.fire(**self.kwargs)
-                if reply is not bool:
-                    timeAndReply = time.time(), reply
-                    #self.output.append(timeAndReply)
-                    #self.output_q.put(timeAndReply)
+        self.output = output_q
 
+    def fire(self, **attrs):
+        e = Event()
+        e.source = self
+        for k, v in attrs.iteritems():
+            #attach attributes passed to fire() to event
+            setattr(e, k, v)
+        for fn in self.callbacks:
+            #pass event (w/ attrs) to functions
+            reply = fn(e)
+            logger.debug("fire recieved %s from \t%s" % (reply,fn))
+            try:
+                logger.debug("Record is %s" % fn.im_self.record)
+            except:
+                logger.debug("%s didn't have a record!" % fn.im_self)
+
+            try:
+                if hasattr(fn.im_self,'record'): #and fn.im_class.record == True:
+                    logger.debug("starting to record!")
+                    data = EventData(time.time(), fn.im_self,reply)
+                    self.output.put(data)
+                    logger.debug("Added to queue: %s,%s,%s" % data)
+            except AttributeError:
+                raise
             except:
                 raise
-            finally:
-                time.sleep(self.interval)
 
 
 class QueueDispatcher(Observable):
     def __init__(self, queue_to_empty):
-        super(QueueDispatcher, self).__init__(self)
+        super(QueueDispatcher, self).__init__()
         self.inputQueue = queue_to_empty
 
     def dispatch_item(self):
             self.data = self.inputQueue.get()
-            self.fire(data)
+            logger.debug("Processing from queue:\t %s,%s,%s" % self.data)
+            self.fire(**self.data._asdict())     #**{"data":self.data}
             self.inputQueue.task_done()
 
     def dispatch_all(self, quantity=0):
-            if quantity==0: quantity = inputQueue.qsize()
-            for i in range():
+            if quantity==0 or type(quantity) != int:
+                logger.debug("Dispatching %s items from output queue" % self.inputQueue.qsize())
+                quantity = self.inputQueue.qsize()
+            for i in range(quantity):
                 self.dispatch_item()
 
-class Model(object):
-    def __init__(self):
+class Model(threading.Thread):
+    """Takes data from devices each interval and moves it to it's internal data list"""
+    def __init__(self, devices=[], dataset=[]):
+        super(Model, self).__init__()
         self.clock = RecordingHeartbeat()
-        self.devices = []
+        self.devices = devices
+        self.data = dataset
+        self.__data_dispatcher = QueueDispatcher(self.clock.output)
+        self.__data_dispatcher.subscribe(self.__append_to_data)
+        self.clock.subscribe(self.__data_dispatcher.dispatch_all)
+        self.data_lock = threading.Lock()
+        self.daemon = True
+
+    def __append_to_data(self, event_data):
+        with self.data_lock:
+            self.data.append(event_data)
 
     def add_device(self,device,function):
         self.devices.append(device)
         self.clock.subscribe(function)
 
-    def start(self):
+    def run(self):
         self.clock.run()
+
+    def printme(self, *args, **kwargs):
+        logger.debug(self.data)
+
+
+class FileWriterModel(Model):
+    def __init__(self,  devices=[], targetfile=None):
+        super(FileWriterModel, self).__init__(devices)
+
+

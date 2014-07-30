@@ -11,7 +11,7 @@ import modbus_tk.defines as cst
 import ModelDevice as Device
 import Model
 from random import random
-
+from time import sleep
 
 
 # set up logging to file - see previous section for more details
@@ -51,6 +51,13 @@ testDevice = Device.Device(random)
 testDummy = Device.Dummy(random)
 testModel = Model.Model()
 
+
 testModel.add_device(testDummy, testDummy.getPV)
-#testModel.clock.subscribe(testModel.clock.zort)
+testModel.clock.subscribe(testModel.printme)
+
+logger.debug(testModel.clock.callbacks)
 testModel.start()
+
+while True:
+    sleep(5)
+    print(len(testModel.data))

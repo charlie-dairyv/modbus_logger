@@ -1,22 +1,39 @@
+from random import randint
 
 class Device(object):
     """device to be regularly polled for process data"""
-    def __init__(self, socketfn):
+    def __init__(self, socketfn, name=None):
         #give it someway to connect to real device
         self.__execute = socketfn
+        self.__name = name
+
 
     def getPV(self,*args, **kwargs):
         #Should return process value for this device
-        pass
+        return None
+
+    @property
+    def name(self):
+        if self.__name is None:
+            self.__name = "Unnamed Device %s" % randint(0,255)
+            return self.__name
+        else:
+            return self.__name
+
+    @name.setter
+    def name(self, new_name):
+        self.__name = new_name
+
 
 class ModbusSlaveDevice(Device):
-    def __init__(self,modbusExecuteFunc, SlaveID, registers={}, address_offset=-1):
+    def __init__(self,modbusExecuteFunc, SlaveID, name=None, registers={}, address_offset=-1):
         """Manages a connection with A Modbus slave.
         Takes a modbus_tk.modbus.Master.execute function """
-        super(ModbusSlaveDevice, self).__init__(self, modbusExecuteFunc)
+        super(ModbusSlaveDevice, self).__init__(self, modbusExecuteFunc, name)
         self.address  = SlaveID
         self.registers = registers
         self.address_offset = address_offset
+        self.record = True
 
 
         #setdefaults
@@ -53,15 +70,42 @@ class ModbusSlaveDevice(Device):
         self.query.registers_to_read = 1
         return self.__poll()
 
+    @property
+    def name(self):
+        if self.__name is None:
+            return "ModbusSlaveDevice %s" % self.address
+        else:
+            return self.__name
+
+    #TODO
+    #   Add "currently in error state" flag
+    #   Add get last error func
+
+
+
 class SOLO4848(ModbusSlaveDevice):
     def __init__(self,modbusExecuteFunc, SlaveID):
         super(SOLO4848, self).__init__(self, modbusExecuteFunc,SOLOregisters.holding_registers)
+
+    @property
+    def name(self):
+        if self.__name is None:
+            return "Solo4848 #%s" % self.address
+        else:
+            return self.__name
+
+
+
 
 class Dummy(Device):
     #Thin class that just returns the value from socket function
     def __init__(self, socketfn):
         #super(Dummy, self).__init__(self, socketfn)  not sure why this doesn't work
         self.__execute = socketfn
+        self.record = True
 
     def getPV(self,*args,**kwargs):
-        return self.__execute()
+        try:
+            e.record = True
+        finally:
+            return self.__execute()
