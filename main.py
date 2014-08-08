@@ -49,7 +49,7 @@ baudrate = 9600
 
 testDevice = Device.Device(random)
 testDummy = Device.Dummy(random)
-testModel = Model.Model()
+testModel = Model.FileWriterModel(targetfile="test.csv")
 
 
 testModel.add_device(testDummy, testDummy.getPV)

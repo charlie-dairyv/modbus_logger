@@ -4,8 +4,8 @@ class Device(object):
     """device to be regularly polled for process data"""
     def __init__(self, socketfn, name=None):
         #give it someway to connect to real device
-        self.__execute = socketfn
-        self.__name = name
+        self._execute = socketfn
+        self._name = name
 
 
     def getPV(self,*args, **kwargs):
@@ -14,15 +14,18 @@ class Device(object):
 
     @property
     def name(self):
-        if self.__name is None:
-            self.__name = "Unnamed Device %s" % randint(0,255)
-            return self.__name
+        if self._name is None:
+            self._name = "Unnamed Device %s" % randint(0,255)
+            return self._name
         else:
-            return self.__name
+            return self._name
 
     @name.setter
     def name(self, new_name):
-        self.__name = new_name
+        self._name = new_name
+
+    def __str__(self):
+        return self.name
 
 
 class ModbusSlaveDevice(Device):
@@ -72,10 +75,12 @@ class ModbusSlaveDevice(Device):
 
     @property
     def name(self):
-        if self.__name is None:
+        if self._name is None:
             return "ModbusSlaveDevice %s" % self.address
         else:
-            return self.__name
+            return self._name
+
+
 
     #TODO
     #   Add "currently in error state" flag
@@ -89,10 +94,10 @@ class SOLO4848(ModbusSlaveDevice):
 
     @property
     def name(self):
-        if self.__name is None:
+        if self._name is None:
             return "Solo4848 #%s" % self.address
         else:
-            return self.__name
+            return self._name
 
 
 
@@ -100,12 +105,13 @@ class SOLO4848(ModbusSlaveDevice):
 class Dummy(Device):
     #Thin class that just returns the value from socket function
     def __init__(self, socketfn):
-        #super(Dummy, self).__init__(self, socketfn)  not sure why this doesn't work
-        self.__execute = socketfn
+        super(Dummy, self).__init__(socketfn)  #not sure why this doesn't work
+        #self.__execute = socketfn
         self.record = True
+        print self.__dict__
 
     def getPV(self,*args,**kwargs):
         try:
             e.record = True
         finally:
-            return self.__execute()
+            return self._execute()

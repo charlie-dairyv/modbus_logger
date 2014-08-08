@@ -10,6 +10,8 @@ import Queue
 import modbus_tk.defines as tkCst
 from collections import namedtuple
 import SOLOregisters
+import csv
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class Observable(object):
     def subscribe(self, callback, parent=None):
         logger.debug("Subscibing %s to %s" % (callback, self))
         self.callbacks.append(callback)
-        logger.debug("Callbacks of %s:\n\t\t\t\t %s" % (self, self.callbacks))
+        #logger.debug("Callbacks of %s:\n\t\t\t\t %s" % (self, self.callbacks))
 
 
     def unsubscribe(self, callback):
@@ -103,7 +105,7 @@ class QueueDispatcher(Observable):
 
     def dispatch_item(self):
             self.data = self.inputQueue.get()
-            logger.debug("Processing from queue:\t %s,%s,%s" % self.data)
+            logger.debug("Processing from queue:\t %s" % self.data._asdict())
             self.fire(**self.data._asdict())     #**{"data":self.data}
             self.inputQueue.task_done()
 
@@ -141,9 +143,44 @@ class Model(threading.Thread):
     def printme(self, *args, **kwargs):
         logger.debug(self.data)
 
+    def add_data_handler(self, new_data_handler):
+        self.__data_dispatcher.subscribe(new_data_handler)
+
+    #TODO :
+    #def remove_data_handler(self, handler):
 
 class FileWriterModel(Model):
-    def __init__(self,  devices=[], targetfile=None):
+    def __init__(self,  devices=[], targetfile=None, fieldnames=None):
         super(FileWriterModel, self).__init__(devices)
+        self.add_data_handler(self.file.write_event)
+
+        if fieldnames is None:
+        #TODO get rid of this lazy hack
+            self.fieldnames = ('time','device',"value")
+        else:
+            self.fieldnames
+        self.file = CSVFileWriter(self.fieldnames, targetfile)
+
+
+
+class CSVFileWriter(object):
+    """ Attach it's write_event method to an Observable, processes events to a CSV file """
+    #todo add filters! to this or dispatcher
+    def __init__(self, field_names, targetfile=None):
+        self.fieldnames = field_names
+        if targetfile is not None:
+            self.filename = targetfile
+        else:
+            pass
+            #TODO add defaulting or error catching code here
+
+    def write_event(self, event):
+        """ takes an event write it to a csv file """
+        logger.debug("write_event args: %s" % event.__dict__)
+        with open(self.filename,'a') as csvfile:
+            writer = csv.DictWriter(csvfile, self.fieldnames, delimiter='\t', restval= None, extrasaction='ignore')
+            writer.writerow(event.__dict__)
+
+
 
 
