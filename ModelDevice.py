@@ -1,4 +1,9 @@
 from random import randint
+from ConfigParser import SafeConfigParser
+import SOLOregisters
+import collections
+import modbus_tk.defines as MBUS
+
 
 
 
@@ -40,19 +45,19 @@ class Device(object):
 
 
 class ModbusSlaveDevice(Device):
-    def __init__(self,modbusExecuteFunc, SlaveID, name=None, registers={}, address_offset=-1):
+    def __init__(self,modbusExecuteFunc, SlaveID, name=None, registers={}, address_offset=-1, lock = None):
         """Manages a connection with A Modbus slave.
         Takes a modbus_tk.modbus.Master.execute function """
-        super(ModbusSlaveDevice, self).__init__(self, modbusExecuteFunc, name)
+        super(ModbusSlaveDevice, self).__init__(modbusExecuteFunc, name=name)
         self.address  = SlaveID
         self.registers = registers
         self.address_offset = address_offset
         self.record = True
-
+        #TODO figure out if it makes sense to use lock at this level
 
         #setdefaults
         ModbusQuery = collections.namedtuple('ModbusQuery', 'function_code starting_register registers_to_read')
-        self.query = ModbusQuery(function_code=tkCst.READ_HOLDING_REGISTERS,
+        self.query = ModbusQuery(function_code=MBUS.READ_HOLDING_REGISTERS,
             starting_register = None,
             registers_to_read=0)
 
@@ -66,20 +71,20 @@ class ModbusSlaveDevice(Device):
         return poll_reply
 
     def getPV(self,**kwargs):
-        # reply = tkmc.execute(slaveId, tkCst.READ_HOLDING_REGISTERS, SOLOregister["PV"],1)
-        self.query.function_code     = tkCst.READ_HOLDING_REGISTERS
+        # reply = tkmc.execute(slaveId, MBUS.READ_HOLDING_REGISTERS, SOLOregister["PV"],1)
+        self.query.function_code     = MBUS.READ_HOLDING_REGISTERS
         self.query.starting_register = self.registers["PV"]
         self.query.registers_to_read = 1
         return self.__poll()
 
     def getNamedRegister(self, reg_name):
-        self.query.function_code     = tkCst.READ_HOLDING_REGISTERS
+        self.query.function_code     = MBUS.READ_HOLDING_REGISTERS
         self.query.starting_register = self.registers[reg_name]
         self.query.registers_to_read = 1
         return self.__poll()
 
     def getRegisterAddress(self, reg_number):
-        self.query.function_code     = tkCst.READ_HOLDING_REGISTERS
+        self.query.function_code     = MBUS.READ_HOLDING_REGISTERS
         self.query.starting_register = reg_number
         self.query.registers_to_read = 1
         return self.__poll()
@@ -101,7 +106,7 @@ class ModbusSlaveDevice(Device):
 
 class SOLO4848(ModbusSlaveDevice):
     def __init__(self,modbusExecuteFunc, SlaveID):
-        super(SOLO4848, self).__init__(self, modbusExecuteFunc,SOLOregisters.holding_registers)
+        super(SOLO4848, self).__init__(self, modbusExecuteFunc, SlaveID, registers = SOLOregisters.holding_registers)
 
     @property
     def name(self):
@@ -126,3 +131,21 @@ class Dummy(Device):
             e.record = True
         finally:
             return self._execute()
+
+def MakeDevicesfromCfg(cfgfile, exec_fucntion):
+    "returns a dict of devices initialized from the cfg file and function to reach physical media"
+    devices = {}
+    parser = SafeConfigParser()
+    parser.read(cfgfile)
+
+    #TODO: load values into dict, pop req'd values to init device, append rest to device.__dict__
+    for device_id in parser.sections():
+        device_name = parser.get(device_id, 'name')
+        device_address = parser.get(device_id, 'address')
+        type_of_device = parser.get(device_id, 'type')
+
+        #TODO: modify to load paramams from dvc (cfg type) file
+        new_device = ModbusSlaveDevice(exec_fucntion, device_address, registers = SOLOregisters.holding_registers)
+        devices[device_id] = new_device
+
+    return devices
