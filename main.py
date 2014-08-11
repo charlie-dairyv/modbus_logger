@@ -71,16 +71,12 @@ interface.set_timeout(timeout)
 
 
 #----- MAIN -----
-devices = Device.MakeDevicesfromCfg("contherm.cfg", interface.execute)
-logger.info("Created devices: %s" % devices)
-testModel = Model.Model(devices)
-logger.debug("Model initiated with devices!")
+mydevices = Device.MakeDevicesfromCfg("contherm.cfg", interface.execute)
+mydevices['test'] = Device.Dummy()
+logger.info("Created devices: %s" % mydevices)
 
+myModel = Model.FileWriterModel(devices=mydevices, targetfile="test.csv")
+logger.debug("Model initiated with devices: %s" % myModel.clock.callbacks)
 
-#testModel.add_device(testDummy, testDummy.getPV)
-logger.debug(testModel.clock.callbacks)
-testModel.start()
-
-while True:
-    sleep(5)
-    print(len(testModel.data))
+if __name__ == '__main__':
+    myModel.start()
