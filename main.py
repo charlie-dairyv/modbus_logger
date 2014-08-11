@@ -55,7 +55,7 @@ try:
     )
 except OSError, e:
     logger.error("OSError: %s" % e)
-    if e.find("[Errno 2]") = -1:
+    if e.__str__().find("[Errno 2]") == -1:
         raise e
     else:
         ser = simSerial.simSerial(port=4, baudrate=9600)
