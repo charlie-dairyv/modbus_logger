@@ -32,6 +32,11 @@ class Model(threading.Thread):
         self.data_lock = threading.Lock()
         self.daemon = True
 
+        for name, device in self.devices.items():
+            #TODO: Fix Model initiation
+            #sloppy, device has to guess at which function to query
+            self.clock.subscribe(device.getPV)
+
     def __append_to_data(self, event_data):
         with self.data_lock:
             self.data.append(event_data)
@@ -55,14 +60,16 @@ class Model(threading.Thread):
 class FileWriterModel(Model):
     def __init__(self,  devices=[], targetfile=None, fieldnames=None):
         super(FileWriterModel, self).__init__(devices)
-        self.add_data_handler(self.file.write_event)
 
         if fieldnames is None:
         #TODO get rid of this lazy hack
             self.fieldnames = ('time','device',"value")
         else:
             self.fieldnames
+
         self.file = CSVFileWriter(self.fieldnames, targetfile)
+        self.add_data_handler(self.file.write_event)
+
 
 
 
@@ -79,7 +86,6 @@ class CSVFileWriter(object):
 
     def write_event(self, event):
         """ takes an event write it to a csv file """
-        logger.debug("write_event args: %s" % event.__dict__)
         with open(self.filename,'a') as csvfile:
             writer = csv.DictWriter(csvfile, self.fieldnames, delimiter='\t', restval= None, extrasaction='ignore')
             writer.writerow(event.__dict__)

@@ -1,5 +1,5 @@
-import os, pty, serial, sys, logging
-
+import os, pty, serial, sys, logging, errno
+from timeout import timeout
 
 class simSerial(object):
     def __init__(self, port=None, baudrate=9600, timeout=None, logger=None, *args, **kwargs):
@@ -23,9 +23,9 @@ class simSerial(object):
         Returns: Number of bytes written
         """
         self.ser.write(data)
-        print data
         return sys.getsizeof(data)
 
+#    @timeout(1,os.strerror(errno.ETIMEDOUT))
     def read(self, size=1):
         """Parameters: number of bytes to read
         Returns: Bytes read from the port."""

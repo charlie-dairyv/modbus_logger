@@ -21,7 +21,6 @@ class Observable(object):
     def subscribe(self, callback, parent=None):
         logger.debug("Subscibing %s to %s" % (callback, self))
         self.callbacks.append(callback)
-        #logger.debug("Callbacks of %s:\n\t\t\t\t %s" % (self, self.callbacks))
 
 
     def unsubscribe(self, callback):
@@ -37,8 +36,11 @@ class Observable(object):
             setattr(e, k, v)
         for fn in self.callbacks:
             #pass event (w/ attrs) to functions
-            logger.debug("Firing %s" % fn)
-            fn(e)
+            try:
+                fn(e)
+            except e:
+                logger.error("Firing %s has produced the error: %s" % (fn,e))
+                raise
 
 class Heartbeat(Observable):
     def __init__(self, interval=1, **kwargs):
@@ -51,8 +53,7 @@ class Heartbeat(Observable):
             try:
                 self.fire(**self.kwargs)
             except:
-                print '\aa Process subscribed to Heartbeat has raised an exception\n'
-                print "Unexpected error:", sys.exc_info()[0]
+                logger.warning("Unexpected error: %s" % sys.exc_info()[0])
                 raise
             finally:
                 time.sleep(self.interval)
@@ -73,15 +74,10 @@ class RecordingHeartbeat(Heartbeat):
         for fn in self.callbacks:
             #pass event (w/ attrs) to functions
             reply = fn(e)
-            logger.debug("fire recieved %s from \t%s" % (reply,fn))
-            try:
-                logger.debug("Record is %s" % fn.im_self.record)
-            except:
-                logger.debug("%s didn't have a record!" % fn.im_self)
+
 
             try:
                 if hasattr(fn.im_self,'record'): #and fn.im_class.record == True:
-                    logger.debug("starting to record!")
                     data = EventData(time.time(), fn.im_self,reply)
                     self.output.put(data)
                     logger.debug("Added to queue: %s,%s,%s" % data)
@@ -98,7 +94,7 @@ class QueueDispatcher(Observable):
 
     def dispatch_item(self):
             self.data = self.inputQueue.get()
-            logger.debug("Processing from queue:\t %s" % self.data._asdict())
+            #logger.debug("Processing from queue:\t %s" % self.data._asdict())
             self.fire(**self.data._asdict())     #**{"data":self.data}
             self.inputQueue.task_done()
 

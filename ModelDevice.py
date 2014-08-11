@@ -1,10 +1,12 @@
-from random import randint
+from random import random, randint
 from ConfigParser import SafeConfigParser
 import SOLOregisters
 import collections
 import modbus_tk.defines as MBUS
+from modbus_tk.modbus import ModbusInvalidResponseError
 
-
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Device(object):
@@ -49,44 +51,53 @@ class ModbusSlaveDevice(Device):
         """Manages a connection with A Modbus slave.
         Takes a modbus_tk.modbus.Master.execute function """
         super(ModbusSlaveDevice, self).__init__(modbusExecuteFunc, name=name)
-        self.address  = SlaveID
+        self.address  = int(SlaveID)
         self.registers = registers
         self.address_offset = address_offset
         self.record = True
+        #if lock
         #TODO figure out if it makes sense to use lock at this level
 
         #setdefaults
-        ModbusQuery = collections.namedtuple('ModbusQuery', 'function_code starting_register registers_to_read')
-        self.query = ModbusQuery(function_code=MBUS.READ_HOLDING_REGISTERS,
-            starting_register = None,
-            registers_to_read=0)
+        self.query = {'function_code':MBUS.READ_HOLDING_REGISTERS,
+            'starting_register':None,
+            'registers_to_read':0}
+        logger.info("modbus slave device initiated at %s" % SlaveID)
+        logger.info("Type of query.registers to read is %s" % type(self.query['registers_to_read']))
+
 
 
     def __poll(self):
         #Note:  this is not thread-safe
-        poll_reply = self.__execute(self.address,
-                                    self.query.function_code,
-                                    self.query.starting_register + self.address_offset,
-                                    self.query.registers_to_read)
+        try:
+            poll_reply = self._execute(self.address,
+                                        self.query['function_code'],
+                                        self.query['starting_register'] + self.address_offset,
+                                        self.query['registers_to_read'])
+        except ModbusInvalidResponseError, e:
+            logger.warning(e)
+            poll_reply = None
+
         return poll_reply
 
-    def getPV(self,**kwargs):
+    def getPV(self,*args,**kwargs):
         # reply = tkmc.execute(slaveId, MBUS.READ_HOLDING_REGISTERS, SOLOregister["PV"],1)
-        self.query.function_code     = MBUS.READ_HOLDING_REGISTERS
-        self.query.starting_register = self.registers["PV"]
-        self.query.registers_to_read = 1
+        self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
+        self.query['starting_register'] = self.registers["PV"]
+        self.query['registers_to_read'] = 1
+
         return self.__poll()
 
     def getNamedRegister(self, reg_name):
-        self.query.function_code     = MBUS.READ_HOLDING_REGISTERS
-        self.query.starting_register = self.registers[reg_name]
-        self.query.registers_to_read = 1
+        self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
+        self.query['starting_register'] = self.registers[reg_name]
+        self.query['registers_to_read'] = 1
         return self.__poll()
 
     def getRegisterAddress(self, reg_number):
-        self.query.function_code     = MBUS.READ_HOLDING_REGISTERS
-        self.query.starting_register = reg_number
-        self.query.registers_to_read = 1
+        self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
+        self.query['starting_register'] = reg_number
+        self.query['registers_to_read'] = 1
         return self.__poll()
 
     @property
@@ -119,12 +130,16 @@ class SOLO4848(ModbusSlaveDevice):
 
 
 class Dummy(Device):
-    #Thin class that just returns the value from socket function
-    def __init__(self, socketfn):
-        super(Dummy, self).__init__(socketfn)  #not sure why this doesn't work
+    """Thin class that just returns the value from socket function
+    Returns a random int if no function is passed"""
+
+    def __init__(self, socketfn=None):
+        if socketfn is None:
+            socketfn = random
+
+        super(Dummy, self).__init__(socketfn)
         #self.__execute = socketfn
         self.record = True
-        print self.__dict__
 
     def getPV(self,*args,**kwargs):
         try:
