@@ -1,5 +1,7 @@
 from random import randint
 
+
+
 class Device(object):
     """device to be regularly polled for process data"""
     def __init__(self, socketfn, name=None):
@@ -26,6 +28,15 @@ class Device(object):
 
     def __str__(self):
         return self.name
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class ModbusSlaveDevice(Device):
