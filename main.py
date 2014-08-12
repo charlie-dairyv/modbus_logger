@@ -5,6 +5,7 @@ import simSerial
 import threading
 import logging
 from ConfigParser import SafeConfigParser
+import cmd
 
 import modbus_tk
 import modbus_tk.modbus_rtu as tkRtu
@@ -62,6 +63,15 @@ except OSError, e:
         logger.info("Specified serial port doesn't exist. Created simulated serial port at %s" % ser.name)
 
 
+#--- Set up custom CMD console
+class logger_console(cmd.Cmd):
+
+    def do_EOF(self, line):
+        return True
+
+    def do_print(self, line):
+        print(myModel.data)
+
 
 #--- Set up Modbus Interface
 timeout = .02
@@ -78,5 +88,8 @@ logger.info("Created devices: %s" % mydevices)
 myModel = Model.FileWriterModel(devices=mydevices, targetfile="test.csv")
 logger.debug("Model initiated with devices: %s" % myModel.clock.callbacks)
 
+console = logger_console()
+
 if __name__ == '__main__':
     myModel.start()
+    console.cmdloop()
