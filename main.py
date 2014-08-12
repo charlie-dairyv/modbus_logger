@@ -70,8 +70,11 @@ class logger_console(cmd.Cmd):
         return True
 
     def do_print(self, line):
-        print(myModel.data)
+        for each in myModel.data:
+            print(each)
 
+    def do_quit(self, line):
+        return True
 
 #--- Set up Modbus Interface
 timeout = .02

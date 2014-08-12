@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 EventData = namedtuple('EventData',['time', 'device', 'value'])
 
 class Event(object):
-    pass
+    def __str__(self):
+        return self.__dict__.__str__()
 
 class Observable(object):
     def __init__(self):
