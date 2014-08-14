@@ -14,8 +14,6 @@ import csv
 #import sys
 
 
-
-
 logger = logging.getLogger(__name__)
 
 
