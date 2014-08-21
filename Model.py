@@ -63,7 +63,7 @@ class FileWriterModel(Model):
         #TODO get rid of this lazy hack
             self.fieldnames = ('time','device',"value")
         else:
-            self.fieldnames
+            self.fieldnames = fieldnames
 
         self.file = CSVFileWriter(self.fieldnames, targetfile)
         self.add_data_handler(self.file.write_event)

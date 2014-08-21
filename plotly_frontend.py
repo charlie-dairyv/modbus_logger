@@ -1,61 +1,125 @@
-import logging
-import plotly.plotly as py
-import plotly.tools as tls
-from plotly.graph_objs import *
 import random
 import datetime
 import main
 
+import logging
 logger = logging.getLogger(__name__)
 
-#get stream keys from credential file
+logger.debug("--- Initializing Plot.ly ---")
+import plotly.plotly as py
+import plotly.tools as tls
+from plotly.graph_objs import *
+
+#-----  Get stream keys from credential file
+#Keep the stream is's in a Module level var, take them out as they are used.
+#New stream ids MUST be added to credential file to be used.  try mvim ~/.plotly/.credentials
+#TODO make this a treadsafe datatype?  or lock them?  who knows.
 stream_ids = tls.get_credentials_file()['stream_ids']
-logger.info(stream_ids)
+logger.debug("Loading Plotly steam ids: %s" % stream_ids)
 
-devices =["TE10", "TE20", "TE21", "TE22"]
+class frontend(object):
+    def __init__(self):
+        pass
+    def write(self,stream,data):
+        """prototype of the write interface, non functional
 
-#set up
-objstreams ={}
-traces = {}
-MAXPOINTS = 600 #10 min of data points
-MODE = 'lines+markers'
+        write() at the very least should take a data point and a stream/target to append it to
+        """
+        pass
 
-for i, stream_id in enumerate(stream_ids):
-    objstreams[devices[i]]= Stream(
-                                token=stream_id,
-                                maxpoints=MAXPOINTS)
+class plotly_frontend(frontend):
+    """Creates and manages the interface to Plot.ly
 
-for name, stream_id in objstreams.items():
-    logger.info('making trace %s with %s' % (name,stream_id))
-    traces[name] = Scatter(x=[],y=[],mode=MODE,
-                        name=name, stream=stream_id)
+    The pattern for use is Define, then Create, the Write
+
+    Define - through init or add_line, define the traces you will be sending
+    Create - Once all traces are created, create the Plot on Plotly
+    Write - use the write() method to send data
+
+    Once the plot has been created, cannot change appearance or add new traces.
+    """
+    def __init__(self, devices=[], max_points=600):
+        """ """
+        #todo add ability to use custom login credentials
+        self.stream_helpers ={}
+        self.traces = {}
+        self.streams = {}
+        self.MODE = 'lines+markers'
+        self.max_points = max_points
+        self.unique_url = None
+
+        for each in devices:
+            try:
+
+                self.stream_helpers[each]= Stream(
+                                token=stream_ids.pop(),
+                                maxpoints=self.max_points)
+            except IndexError:
+                logger.warning("Not enough Stream IDs for devices supplied! This device will not be streamed: %s" % each)
+            except:
+                raise
+            finally:
+                for name, stream_id in self.stream_helpers.items():
+                    logger.info('making trace %s with %s' % (name,stream_id))
+                    self.traces[name] = Scatter(x=[],y=[],mode=self.MODE,
+                                name=name, stream=stream_id)
+
+    def add_line(self, device, mode=None):
+        if mode is None: mode = self.MODE
+        self.stream_helpers[each]= Stream(
+                                token=stream_ids.pop(),
+                                maxpoints=self.max_points)
+        logger.info('making trace %s with %s' % (name,stream_id))
+        self.traces[name] = Scatter(x=[],y=[],mode=MODE,
+                                name=name, stream=stream_id)
 
 
-data = Data(traces.values())
-layout = Layout(title = 'Test123')
-fig = Figure(data=data, layout=layout)
+    def create(self):
+        """Create the Plot and Streams"""
+        if self.unique_url is not None:
+            #if create has already been called, do nothing and return false
+            return False
+        else:
+            data = Data(self.traces.values())
+            layout = Layout(title = "Data %s" % datetime.datetime.now().strftime('%Y-%m-%d'))
+            self.fig = Figure(data=data, layout=layout)
 
-new_plot_name = "Data %s" % datetime.datetime.now().strftime('%Y-%m-%d')
-unique_url = py.plot(fig, filename=new_plot_name)
-logger.warning(unique_url)
+            new_plot_name = "Data %s" % datetime.datetime.now().strftime('%Y-%m-%d')
+            self.unique_url = py.plot(self.fig, filename=new_plot_name)
+            logger.debug("Plot created at %s" % self.unique_url)
 
 
-streams = {}
-for name, stream in objstreams.items():
-    streams[name] = py.Stream(stream['token'])
-    streams[name].open()
-   #streams[name].write(dict(x=0,y=0))
+            for name, stream in self.stream_helpers.items():
+                self.streams[name] = py.Stream(stream['token'])
+                self.streams[name].open()
 
-i=0
-N=600
-while i<N:
-    i += 1
-    for stream in streams.values():
-        x=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-        y=random.random()
+            return self.unique_url
+
+    def write(self,target,data,time):
+        """Target is the Name of the device for the data point
+        data is an (x,y) pair, y is a float, x is in Epoch time"""
+        #TODO add fall backs, so that x and y are interchangable with time and data and can be passed as dict
+        x=datetime.datetime.fromtimestamp(time).strftime('%Y-%m-%d %H:%M:%S.%f')
+        y=data
         baz=dict(x=x,y=y)
-        #logger.info("To %s writing %s" % (stream.stream_id['token'],baz))
-        stream.write(baz)
+        self.streams[target].write(baz)
 
-for stream in streams.values():
-    stream.close()
+    def __del__(self):
+        for each in self.streams.values():
+            each.close()
+
+
+
+   #streams[name].write(dict(x=0,y=0))
+if __name__ == '__main__':
+    import time
+    i=0
+    N=600
+    devices = ['test']
+    graph = plotly_frontend(devices)
+    graph.create()
+
+    while i<N:
+        i += 1
+        baz=dict(data=random.random(), time=time.time())
+        graph.write('test',**baz)
