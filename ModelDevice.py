@@ -4,6 +4,7 @@ import SOLOregisters
 import collections
 import modbus_tk.defines as MBUS
 from modbus_tk.modbus import ModbusInvalidResponseError
+import sys
 
 import logging
 logger = logging.getLogger(__name__)
@@ -151,7 +152,12 @@ def MakeDevicesfromCfg(cfgfile, exec_fucntion):
     "returns a dict of devices initialized from the cfg file and function to reach physical media"
     devices = {}
     parser = SafeConfigParser()
-    parser.read(cfgfile)
+
+    try:
+        parser.read(cfgfile)
+    except:
+        logger.warning("There was an error opening the device config file %s: \n%s" % (cfgfile,sys.exc_info()[0]))
+        raise
 
     #TODO: load values into dict, pop req'd values to init device, append rest to device.__dict__
     for device_id in parser.sections():
