@@ -108,7 +108,17 @@ class plotly_frontend(frontend):
         for each in self.streams.values():
             each.close()
 
+def add_stream_id(new_ids):
+    """Safe way to add steam id's to credentials
 
+    wraps unsafe tls.set_credentials_file() method"""
+    ids = tls.get_credentials_file()['stream_ids']
+
+    for each in new_ids:
+        ids.append(each)
+
+    tls.set_credentials_file(stream_ids=ids)
+    return True
 
    #streams[name].write(dict(x=0,y=0))
 if __name__ == '__main__':
