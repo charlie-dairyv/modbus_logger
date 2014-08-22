@@ -1,6 +1,6 @@
 import random
 import datetime
-import main
+import sys
 
 import logging
 logger = logging.getLogger(__name__)
@@ -14,8 +14,7 @@ from plotly.graph_objs import *
 #Keep the stream is's in a Module level var, take them out as they are used.
 #New stream ids MUST be added to credential file to be used.  try mvim ~/.plotly/.credentials
 #TODO make this a treadsafe datatype?  or lock them?  who knows.
-stream_ids = tls.get_credentials_file()['stream_ids']
-logger.debug("Loading Plotly steam ids: %s" % stream_ids)
+
 
 class frontend(object):
     def __init__(self):
@@ -47,12 +46,18 @@ class plotly_frontend(frontend):
         self.MODE = 'lines+markers'
         self.max_points = max_points
         self.unique_url = None
+        self.mystream_ids = []
+
+        self.mystream_ids += tls.get_credentials_file()['stream_ids']
+        logger.debug("Loading Plotly steam ids: %s" % self.mystream_ids)
+        logger.debug("Loading Device names: %s" % devices)
+
 
         for each in devices:
             try:
 
                 self.stream_helpers[each]= Stream(
-                                token=stream_ids.pop(),
+                                token=self.mystream_ids.pop(),
                                 maxpoints=self.max_points)
             except IndexError:
                 logger.warning("Not enough Stream IDs for devices supplied! This device will not be streamed: %s" % each)
@@ -88,21 +93,35 @@ class plotly_frontend(frontend):
             self.unique_url = py.plot(self.fig, filename=new_plot_name)
             logger.debug("Plot created at %s" % self.unique_url)
 
-
+            logger.info("Creating streams for %s" % self.stream_helpers.keys())
             for name, stream in self.stream_helpers.items():
                 self.streams[name] = py.Stream(stream['token'])
                 self.streams[name].open()
 
             return self.unique_url
 
-    def write(self,target,data,time):
+    def write(self,target,value,time):
         """Target is the Name of the device for the data point
-        data is an (x,y) pair, y is a float, x is in Epoch time"""
+        value is an (x,y) pair, y is a float, x is in Epoch time"""
         #TODO add fall backs, so that x and y are interchangable with time and data and can be passed as dict
         x=datetime.datetime.fromtimestamp(time).strftime('%Y-%m-%d %H:%M:%S.%f')
-        y=data
+        y=value
         baz=dict(x=x,y=y)
+        logger.info("Target: %s" % target)
+        logger.info("Streams[target]: %s" %  self.streams[target])
         self.streams[target].write(baz)
+
+    def write_event(self, event):
+        """Takes an event as an arguament, unpacks it and passes it into write()"""
+        logger.debug(event)
+        try:
+            value = event.value
+            time = event.time
+            target = event.device.name
+        except:
+            logger.error("Caught an error in plotly_frontend.write_event(): %s" % sys.exc_info()[0])
+
+        self.write(target, value, time)
 
     def __del__(self):
         for each in self.streams.values():
@@ -123,6 +142,8 @@ def add_stream_id(new_ids):
    #streams[name].write(dict(x=0,y=0))
 if __name__ == '__main__':
     import time
+    import main
+
     i=0
     N=600
     devices = ['test']
@@ -131,5 +152,5 @@ if __name__ == '__main__':
 
     while i<N:
         i += 1
-        baz=dict(data=random.random(), time=time.time())
+        baz=dict(value=random.random(), time=time.time())
         graph.write('test',**baz)
