@@ -41,9 +41,7 @@ logger.info('------Starting--------')
 # Now, define a couple of other loggers which might represent areas in your
 # application:
 
-logger1 = logging.getLogger('myapp.area1')
-logger2 = logging.getLogger('myapp.area2')
-
+import plotly_frontend as pfront
 
 #---  Set up Serial Port
 try:
@@ -84,12 +82,20 @@ interface.set_timeout(timeout)
 
 
 #----- MAIN -----
-mydevices = Device.MakeDevicesfromCfg("contherm.cfg", interface.execute)
+mydevices = {}
+#mydevices = Device.MakeDevicesfromCfg("contherm.cfg", interface.execute)
 mydevices['test'] = Device.Dummy()
+mydevices['test'].name = 'test'
 logger.info("Created devices: %s" % mydevices)
 
+#Create Data Model
 myModel = Model.FileWriterModel(devices=mydevices, targetfile="test.csv")
 logger.debug("Model initiated with devices: %s" % myModel.clock.callbacks)
+
+#Create frontend
+graph = pfront.plotly_frontend(mydevices.keys())
+graph.create()
+myModel.add_data_handler(graph.write_event)
 
 console = logger_console()
 
