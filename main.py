@@ -1,3 +1,5 @@
+#!/usr/bin/env
+
 from __future__ import print_function
 import serial
 import simSerial
@@ -6,6 +8,7 @@ import threading
 import logging
 from ConfigParser import SafeConfigParser
 import cmd
+import sys
 
 import modbus_tk
 import modbus_tk.modbus_rtu as tkRtu
@@ -17,13 +20,31 @@ import Model
 from random import random
 from time import sleep
 
+#--- Load main parameters from cfg file
+parser = SafeConfigParser()
 
-# set up logging to file - see previous section for more details
+try:
+    parser.read('main.cfg')
+except:
+    logger.warning("There was an error opening the config file %s: \n%s" % (cfgfile,sys.exc_info()[0]))
+    logger.info("Using default parameters to initialize")
+
+    parser.add_section('main')
+    parser.set('main', 'log file', 'pilot.log')
+    parser.set('main', 'device configuration', 'device.cfg')
+finally:
+    log_file = parser.get('main', 'log file')
+    device_cfg_file = parser.get('main', 'device configuration')
+
+
+#--- Set up Logging to File And Console
+# set up logging to file
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M',
-                    filename='logga.log',
+                    filename=log_file,
                     filemode='w')
+
 # define a Handler which writes INFO messages or higher to the sys.stderr
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
@@ -31,6 +52,7 @@ console.setLevel(logging.INFO)
 formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
 # tell the handler to use this format
 console.setFormatter(formatter)
+
 # add the handler to the root logger
 logger = logging.getLogger(__name__)
 logger.addHandler(console)
@@ -38,12 +60,11 @@ logger.addHandler(console)
 # Now, we can log to the root logger, or any other logger. First the root...
 logger.info('------Starting--------')
 
-# Now, define a couple of other loggers which might represent areas in your
-# application:
 
 import plotly_frontend as pfront
 
 #---  Set up Serial Port
+logger.info('------Initializing--------')
 try:
     ser = serial.Serial(
         port='/dev/tty.usbserial-A603IXGL',
@@ -82,13 +103,10 @@ interface.set_timeout(timeout)
 
 
 #----- MAIN -----
-mydevices = {}
-#mydevices = Device.MakeDevicesfromCfg("contherm.cfg", interface.execute)
-mydevices['test'] = Device.Dummy()
-mydevices['test'].name = 'test'
+mydevices = Device.MakeDevicesfromCfg(device_cfg_file, interface.execute)
+#mydevices['test'] = Device.Dummy()
 logger.info("Created devices: %s" % mydevices)
 
-#Create Data Model
 myModel = Model.FileWriterModel(devices=mydevices, targetfile="test.csv")
 logger.debug("Model initiated with devices: %s" % myModel.clock.callbacks)
 

@@ -108,8 +108,11 @@ class plotly_frontend(frontend):
         y=value
         baz=dict(x=x,y=y)
         logger.info("Target: %s" % target)
-        logger.info("Streams[target]: %s" %  self.streams[target])
-        self.streams[target].write(baz)
+        try:
+            logger.info("Streams[target]: %s" %  self.streams[target])
+            self.streams[target].write(baz)
+        except:
+            logger.warning("Invalid target: %s" % target)
 
     def write_event(self, event):
         """Takes an event as an arguament, unpacks it and passes it into write()"""

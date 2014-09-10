@@ -4,6 +4,7 @@ import SOLOregisters
 import collections
 import modbus_tk.defines as MBUS
 from modbus_tk.modbus import ModbusInvalidResponseError
+import sys
 
 import logging
 logger = logging.getLogger(__name__)
@@ -69,14 +70,19 @@ class ModbusSlaveDevice(Device):
 
     def __poll(self):
         #Note:  this is not thread-safe
-        try:
-            poll_reply = self._execute(self.address,
-                                        self.query['function_code'],
-                                        self.query['starting_register'] + self.address_offset,
-                                        self.query['registers_to_read'])
-        except ModbusInvalidResponseError, e:
-            logger.warning(e)
-            poll_reply = None
+        tries = 0
+        success = False
+        while tries < 10 and success != True:
+            try:
+                poll_reply = self._execute(self.address,
+                                            self.query['function_code'],
+                                            self.query['starting_register'] + self.address_offset,
+                                            self.query['registers_to_read'])
+                success = True
+            except ModbusInvalidResponseError, e:
+                logger.warning(e)
+                poll_reply = None
+                tries += 1
 
         return poll_reply
 
@@ -86,7 +92,11 @@ class ModbusSlaveDevice(Device):
         self.query['starting_register'] = self.registers["PV"]
         self.query['registers_to_read'] = 1
 
-        return self.__poll()
+        value = self.__poll()
+        try:
+            return value[0] #unpack tuples and lists if possible
+        except:
+            return value
 
     def getNamedRegister(self, reg_name):
         self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
@@ -151,16 +161,26 @@ def MakeDevicesfromCfg(cfgfile, exec_fucntion):
     "returns a dict of devices initialized from the cfg file and function to reach physical media"
     devices = {}
     parser = SafeConfigParser()
-    parser.read(cfgfile)
+
+    try:
+        parser.read(cfgfile)
+    except:
+        logger.warning("There was an error opening the device config file %s: \n%s" % (cfgfile,sys.exc_info()[0]))
+        raise
 
     #TODO: load values into dict, pop req'd values to init device, append rest to device.__dict__
     for device_id in parser.sections():
         device_name = parser.get(device_id, 'name')
         device_address = parser.get(device_id, 'address')
         type_of_device = parser.get(device_id, 'type')
+        try:
+            is_enabled = parser.get(device_id, 'enable')
+        except:
+            is_enabled = 'True'
 
         #TODO: modify to load paramams from dvc (cfg type) file
-        new_device = ModbusSlaveDevice(exec_fucntion, device_address, registers = SOLOregisters.holding_registers)
-        devices[device_id] = new_device
+        if is_enabled == 'True':
+            new_device = ModbusSlaveDevice(exec_fucntion, device_address, registers = SOLOregisters.holding_registers, name=device_name)
+            devices[device_id] = new_device
 
     return devices
