@@ -83,6 +83,10 @@ class ModbusSlaveDevice(Device):
                 logger.warning(e)
                 poll_reply = None
                 tries += 1
+            except:
+                #logger.warning(e)
+                poll_reply = None
+                tries += 1
 
         return poll_reply
 
