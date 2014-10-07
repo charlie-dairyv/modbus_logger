@@ -68,11 +68,11 @@ class ModbusSlaveDevice(Device):
 
 
 
-    def __poll(self):
+    def __poll(self, max_attempts=10):
         #Note:  this is not thread-safe
         tries = 0
         success = False
-        while tries < 10 and success != True:
+        while tries < max_attempts and success != True:
             try:
                 poll_reply = self._execute(self.address,
                                             self.query['function_code'],
@@ -83,6 +83,10 @@ class ModbusSlaveDevice(Device):
                 logger.warning(e)
                 poll_reply = None
                 tries += 1
+            except:
+                poll_reply = None
+                tries += 1
+
 
         return poll_reply
 
@@ -128,6 +132,8 @@ class ModbusSlaveDevice(Device):
 class SOLO4848(ModbusSlaveDevice):
     def __init__(self,modbusExecuteFunc, SlaveID):
         super(SOLO4848, self).__init__(self, modbusExecuteFunc, SlaveID, registers = SOLOregisters.holding_registers)
+        decimal_position = self.getNamedRegister('Decimal Point Position')
+        self.decimal_correction = 1. / pow(10,decimal_position)
 
     @property
     def name(self):
@@ -135,6 +141,12 @@ class SOLO4848(ModbusSlaveDevice):
             return "Solo4848 #%s" % self.address
         else:
             return self._name
+
+    def getPV(self,*args,**kwargs):
+        value = super(SOLO4848, self).getPV(args, kwargs)
+        corrected_value = value * self.decimal_correction
+        return corrected_value
+        
 
 
 
