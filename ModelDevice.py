@@ -132,6 +132,8 @@ class ModbusSlaveDevice(Device):
 class SOLO4848(ModbusSlaveDevice):
     def __init__(self,modbusExecuteFunc, SlaveID):
         super(SOLO4848, self).__init__(self, modbusExecuteFunc, SlaveID, registers = SOLOregisters.holding_registers)
+        decimal_position = self.getNamedRegister('Decimal Point Position')
+        self.decimal_correction = 1. / pow(10,decimal_position)
 
     @property
     def name(self):
@@ -139,6 +141,12 @@ class SOLO4848(ModbusSlaveDevice):
             return "Solo4848 #%s" % self.address
         else:
             return self._name
+
+    def getPV(self,*args,**kwargs):
+        value = super(SOLO4848, self).getPV(args, kwargs)
+        corrected_value = value * self.decimal_correction
+        return corrected_value
+        
 
 
 
