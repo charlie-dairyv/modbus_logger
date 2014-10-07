@@ -68,11 +68,11 @@ class ModbusSlaveDevice(Device):
 
 
 
-    def __poll(self):
+    def __poll(self, max_attempts=10):
         #Note:  this is not thread-safe
         tries = 0
         success = False
-        while tries < 10 and success != True:
+        while tries < max_attempts and success != True:
             try:
                 poll_reply = self._execute(self.address,
                                             self.query['function_code'],
@@ -83,6 +83,10 @@ class ModbusSlaveDevice(Device):
                 logger.warning(e)
                 poll_reply = None
                 tries += 1
+            except:
+                poll_reply = None
+                tries += 1
+
 
         return poll_reply
 
