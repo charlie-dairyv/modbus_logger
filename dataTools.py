@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
 import csv
-import sys, getopt
+import sys, getopt,os
 from collections import OrderedDict
 import datetime as dt
+import logging
 
 def main(argv):
    inputfile = ''
@@ -40,7 +41,7 @@ def csvMerger(filename1,filename2):
 			
 			data1 = []
 			for each in reader1:
-
+                            pass
 
 def list_to_csv(filename,outputfilename):
 	data=OrderedDict()
@@ -70,13 +71,63 @@ def list_to_csv(filename,outputfilename):
 		
 		#data = []	
 		#for each in ldata:
-	with open(outputfilename,'w') as f:		
+	with open('tempfile','w') as f:		
 		writer = csv.DictWriter(f, fieldnames=write_headers)
 		headers = dict( (n,n) for n in write_headers )
 		writer.writerow(headers)
 		for each in ldata:	
-			writer.writerow({'time':each[0], each[1]:each[2]})
+			writer.writerow({'time':each[0], each[1]:each[2]}) 
+                # make sure that all data is on disk
+                # see http://stackoverflow.com/questions/7433057/is-rename-without-fsync-safe
+                f.flush()
+                os.fsync(f.fileno()) 
+        os.rename('tempfile', outputfilename)
+
+def transform_column(filename, transform_function, columns, outputfilename=None):
+        """ Does a thing
+	""" 
+	with open(filename,'rU') as file:
+		reader = csv.DictReader(file, dialect='excel')
+		
+		data=[]
+		for row in reader:
+		    for col in columns:	
+                        try:
+				item = row[col]
+			except:
+				try:
+					item = row[col.lower()] 
+				except:
+					raise ValueError, 'CSV file has no header "%s"' % col
+                        finally:
+                                try:
+                                    itme = item
+                                except:
+                                    pass
+		
+			if item == '':
+				pass
+			else:
+				transformed_item = transform_function(item) 
+                                row[col] = transformed_item
+				data.append(row)
+
+	fieldnames = data[0].keys()
 			
+	with open('tempfile', 'w') as file:
+		writer = csv.DictWriter(file, fieldnames = fieldnames)
+		headers = dict( (n,n) for n in fieldnames )
+		writer.writerow(headers)
+		for each_row in data:
+			writer.writerow(each_row)
+                # make sure that all data is on disk
+                # see http://stackoverflow.com/questions/7433057/is-rename-without-fsync-safe
+                file.flush()
+                os.fsync(file.fileno()) 
+        if outputfilename is None:
+            outputfilename = filename
+        os.rename('tempfile', outputfilename)
+
 
 def elapsedmin_to_ctime(filename, time0):
 	""" Does a thing
