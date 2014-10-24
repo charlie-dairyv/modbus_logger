@@ -1,6 +1,6 @@
 from random import random, randint
 from ConfigParser import SafeConfigParser
-import SOLOregisters,series2700
+import SOLOregisters
 import collections
 import modbus_tk.defines as MBUS
 from modbus_tk.modbus import ModbusInvalidResponseError
@@ -147,11 +147,27 @@ class SOLO4848(ModbusSlaveDevice):
         value = super(SOLO4848, self).getPV(args, kwargs)
         corrected_value = value * self.decimal_correction
         return corrected_value
-        
-class micromotion2700series(ModbusSlaveDevice)
+
+
+class micromotion2700series(ModbusSlaveDevice):
     def __init__(self,modbusExecuteFunc, SlaveID):
-        super(SOLO4848, self).__init__(self, modbusExecuteFunc, SlaveID, registers = series2700.floating_point)
-        self.coils = series2700.coils
+        super(micromotion2700series, self).__init__(modbusExecuteFunc, SlaveID, registers = {})
+        self.registers = {
+            'Mass flow rate':1,
+            'Density':2,
+            'Temperature':3,
+            'Volume flow rate':4,
+            'Mass total':7,
+            'Volume total':8,
+            'Mass inventory':9,
+            'Volume inventory':10,
+            'Mass flow rate scale factor':28,
+            'Density scale factor':29,
+            'Temperature scale factor':30,
+            'Volume flow rate scale factor':31,
+            'Mass inventory scale factor':36
+            }
+
 
     @property
     def name(self):
@@ -161,9 +177,29 @@ class micromotion2700series(ModbusSlaveDevice)
             return self._name
 
     def getPV(self,*args,**kwargs):
-        binary_float = self.getRegisterAddress(registers["Mass flow rate"],2)
-        float = struct.unpack('d', struct.pack('Q', binary_float))[0]
-        return float
+        return self.get_named_PV("Mass flow rate", *args, **kwargs)
+
+
+    def get_named_PV(self, PV_name, auto_scale=True, scale_factor_name=None,*args, **kwargs):
+        value = self.getRegisterAddress(self.registers[PV_name],1)[0]
+
+        if auto_scale is True:
+            scale_factor_name = PV_name + " scale factor"
+
+        if scale_factor_name is not None:
+            try:
+                scale = self.getRegisterAddress(self.registers[scale_factor_name],1)[0]
+            except:
+                scale = 1
+        else:
+            scale = 1
+        return self.scale_process_value(value, scale)
+
+
+
+
+    def scale_process_value(self, process_value, scale_value):
+        return float(process_value)/float(scale_value)
 
 class Dummy(Device):
     """Thin class that just returns the value from socket function
