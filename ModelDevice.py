@@ -1,10 +1,11 @@
 from random import random, randint
 from ConfigParser import SafeConfigParser
-import SOLOregisters
+import SOLOregisters,series2700
 import collections
 import modbus_tk.defines as MBUS
 from modbus_tk.modbus import ModbusInvalidResponseError
 import sys
+import struct
 
 import logging
 logger = logging.getLogger(__name__)
@@ -102,16 +103,16 @@ class ModbusSlaveDevice(Device):
         except:
             return value
 
-    def getNamedRegister(self, reg_name):
+    def getNamedRegister(self, reg_name, num_of_registers=1):
         self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
         self.query['starting_register'] = self.registers[reg_name]
-        self.query['registers_to_read'] = 1
+        self.query['registers_to_read'] = num_of_registers
         return self.__poll()
 
-    def getRegisterAddress(self, reg_number):
+    def getRegisterAddress(self, reg_number, num_of_registers=1):
         self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
         self.query['starting_register'] = reg_number
-        self.query['registers_to_read'] = 1
+        self.query['registers_to_read'] = num_of_registers
         return self.__poll()
 
     @property
@@ -147,9 +148,22 @@ class SOLO4848(ModbusSlaveDevice):
         corrected_value = value * self.decimal_correction
         return corrected_value
         
+class micromotion2700series(ModbusSlaveDevice)
+    def __init__(self,modbusExecuteFunc, SlaveID):
+        super(SOLO4848, self).__init__(self, modbusExecuteFunc, SlaveID, registers = series2700.floating_point)
+        self.coils = series2700.coils
 
+    @property
+    def name(self):
+        if self._name is None:
+            return "Series2700 #%s" % self.address
+        else:
+            return self._name
 
-
+    def getPV(self,*args,**kwargs):
+        binary_float = self.getRegisterAddress(registers["Mass flow rate"],2)
+        float = struct.unpack('d', struct.pack('Q', binary_float))[0]
+        return float
 
 class Dummy(Device):
     """Thin class that just returns the value from socket function
