@@ -83,12 +83,14 @@ def list_to_csv(filename,outputfilename):
                 os.fsync(f.fileno()) 
         os.rename('tempfile', outputfilename)
 
-def transform_column(filename, transform_function, columns, outputfilename=None):
-        """ Does a thing
+def transform_column(filename, transform_function, columns, outputfilename=None, verbose=False, raise_errors=False):
+        """ Applies transform function to the specified column(s)
+            Supplied function is responsible for dealing with blanks, transforming to float, ect
 	""" 
 	with open(filename,'rU') as file:
 		reader = csv.DictReader(file, dialect='excel')
-		
+		failcounter = 0
+                successcounter = 0
 		data=[]
 		for row in reader:
 		    for col in columns:	
@@ -99,18 +101,17 @@ def transform_column(filename, transform_function, columns, outputfilename=None)
 					item = row[col.lower()] 
 				except:
 					raise ValueError, 'CSV file has no header "%s"' % col
+                                    
+                        try:
+                            transformed_item = transform_function(item) 
+                            row[col] = transformed_item
+                            successcounter += 1
+                        except:
+                            failcounter += 1
+                            if raise_errors is True:
+                                raise 
                         finally:
-                                try:
-                                    itme = item
-                                except:
-                                    pass
-		
-			if item == '':
-				pass
-			else:
-				transformed_item = transform_function(item) 
-                                row[col] = transformed_item
-				data.append(row)
+                            data.append(row)
 
 	fieldnames = data[0].keys()
 			
@@ -127,6 +128,9 @@ def transform_column(filename, transform_function, columns, outputfilename=None)
         if outputfilename is None:
             outputfilename = filename
         os.rename('tempfile', outputfilename)
+
+        if verbose is True:
+            print "Wrote transformed data to: %s\n Passed: %s\n Failed: %s" % (outputfilename, successcounter, failcounter)
 
 
 def elapsedmin_to_ctime(filename, time0):
@@ -163,10 +167,11 @@ def elapsedmin_to_ctime(filename, time0):
 		for each_row in data:
 			writer.writerow(each_row)
 			
-	
+def 
 if __name__ == "__main__":
    #main(sys.argv[1:])
-   #list_to_csv('test.csv','newdata.csv')
-   #zero = dt.datetime.strptime('2014-09-12 09:10AM' , '%Y-%m-%d %I:%M%p')
-   #elapsedmin_to_ctime('20140912data.csv', zero)
-   csvMerger('20140912data.csv','test.csv')
+   list_to_csv('test.csv','newdata.csv')
+   zero = dt.datetime.strptime('2014-09-12 09:10AM' , '%Y-%m-%d %I:%M%p')
+   elapsedmin_to_ctime('20140912data.csv', zero)
+
+   #csvMerger('20140912data.csv','test.csv')
