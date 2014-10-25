@@ -151,7 +151,7 @@ class SOLO4848(ModbusSlaveDevice):
 
 class micromotion2700series(ModbusSlaveDevice):
     def __init__(self,modbusExecuteFunc, SlaveID):
-        super(micromotion2700series, self).__init__(modbusExecuteFunc, SlaveID, registers = {})
+        super(micromotion2700series, self).__init__(modbusExecuteFunc, SlaveID, registers = {}, address_offset=0)
         self.registers = {
             'Mass flow rate':1,
             'Density':2,
@@ -187,12 +187,13 @@ class micromotion2700series(ModbusSlaveDevice):
             scale_factor_name = PV_name + " scale factor"
 
         if scale_factor_name is not None:
-            try:
-                scale = self.getRegisterAddress(self.registers[scale_factor_name],1)[0]
-            except:
-                scale = 1
+            #try:
+            scale = self.getRegisterAddress(self.registers[scale_factor_name],1)[0]
+            #except e:
+                #scale = 1
         else:
             scale = 1
+        logger.info("series2700 raw: %s scale: %s reported: %s" % (value,scale,self.scale_process_value(value, scale)))
         return self.scale_process_value(value, scale)
 
 
