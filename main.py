@@ -107,7 +107,7 @@ mydevices = Device.MakeDevicesfromCfg(device_cfg_file, interface.execute)
 mydevices['FI13'] = Device.micromotion2700series(interface.execute,12)
 logger.info("Created devices: %s" % mydevices)
 
-myModel = Model.FileWriterModel(devices=mydevices, targetfile="test.csv")
+myModel = Model.FileWriterModel(devices=mydevices, AutoName=True)
 logger.debug("Model initiated with devices: %s" % myModel.clock.callbacks)
 
 #Create frontend
