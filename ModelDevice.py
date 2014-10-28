@@ -20,8 +20,10 @@ class Device(object):
 
 
     def getPV(self,*args, **kwargs):
-        #Should return process value for this device
-        return None
+        #Should return process value for this device as a dict
+        #Each key in the dict should describe it's value
+        #for single value devices, the key is usually the device name
+        return {self.name, None}
 
     @property
     def name(self):
@@ -98,10 +100,13 @@ class ModbusSlaveDevice(Device):
         self.query['registers_to_read'] = 1
 
         value = self.__poll()
+        reply = {}
         try:
-            return value[0] #unpack tuples and lists if possible
+            reply[self.name] = value[0] #unpack tuples and lists if possible
         except:
-            return value
+            reply[self.name] = value
+        
+        return reply
 
     def getNamedRegister(self, reg_name, num_of_registers=1):
         self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
@@ -144,9 +149,10 @@ class SOLO4848(ModbusSlaveDevice):
             return self._name
 
     def getPV(self,*args,**kwargs):
-        value = super(SOLO4848, self).getPV(args, kwargs)
-        corrected_value = value * self.decimal_correction
-        return corrected_value
+        reply = super(SOLO4848, self).getPV(args, kwargs)
+        corrected_value = reply[self.name] * self.decimal_correction
+        reply[self.name] = corrected_value
+        return reply
 
 
 class micromotion2700series(ModbusSlaveDevice):
@@ -177,7 +183,12 @@ class micromotion2700series(ModbusSlaveDevice):
             return self._name
 
     def getPV(self,*args,**kwargs):
-        return self.get_named_PV("Mass flow rate", *args, **kwargs)
+        reply = {}
+        queries = ["Mass flow rate",'Density','Temperature']
+        for each in queries:
+            data = self.get_named_PV(each, *args, **kwargs)
+            reply.update(data)
+        return reply
 
 
     def get_named_PV(self, PV_name, auto_scale=True, scale_factor_name=None,*args, **kwargs):
@@ -194,10 +205,8 @@ class micromotion2700series(ModbusSlaveDevice):
         else:
             scale = 1
         logger.info("series2700 raw: %s scale: %s reported: %s" % (value,scale,self.scale_process_value(value, scale)))
-        return self.scale_process_value(value, scale)
-
-
-
+        reply = {PV_name: self.scale_process_value(value, scale)}
+        return reply
 
     def scale_process_value(self, process_value, scale_value):
         return float(process_value)/float(scale_value)
@@ -218,7 +227,8 @@ class Dummy(Device):
         try:
             e.record = True
         finally:
-            return self._execute()
+            reply = {self.name: self._execute()}
+            return reply
 
 def MakeDevicesfromCfg(cfgfile, exec_fucntion):
     "returns a dict of devices initialized from the cfg file and function to reach physical media"

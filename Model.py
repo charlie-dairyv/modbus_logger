@@ -52,7 +52,7 @@ class Model(threading.Thread):
     def add_data_handler(self, new_data_handler):
         self.__data_dispatcher.subscribe(new_data_handler)
 
-    #TODO :
+    #TODO:
     #def remove_data_handler(self, handler):
 
 class FileWriterModel(Model):
@@ -60,7 +60,7 @@ class FileWriterModel(Model):
         super(FileWriterModel, self).__init__(devices)
         if AutoName is True and targetfile is None:
             #"Names data file with todays date. Does not override a provided targetfile name"
-            targetfile = autoname('isodate','csv')
+            targetfile = self.autoname('isodate','csv')
 
         if fieldnames is None:
         #TODO get rid of this lazy hack
@@ -71,14 +71,13 @@ class FileWriterModel(Model):
         self.file = CSVFileWriter(self.fieldnames, targetfile)
         self.add_data_handler(self.file.write_event)
         
-    def autoname(self,style='isodate', extension='csv'):
+    def autoname(self, style='isodate', extension='csv'):
         "returns new file name string with specified name style and extension."
         new_file_name = None
-        if style = 'isodate':
+        if style == 'isodate':
             today =  datetime.date.today()
             name_string= today.strftime('%Y%m%d')
             
-        
         new_file_name = name_string + '.' + extension
         return new_file_name
 
