@@ -7,7 +7,7 @@ import modbus_tk.defines as tkCst
 import observables
 #from collections import namedtuple
 import csv
-#import datetime
+import datetime
 #import time
 #import SOLOregisters
 #import Queue
@@ -52,12 +52,15 @@ class Model(threading.Thread):
     def add_data_handler(self, new_data_handler):
         self.__data_dispatcher.subscribe(new_data_handler)
 
-    #TODO :
+    #TODO:
     #def remove_data_handler(self, handler):
 
 class FileWriterModel(Model):
-    def __init__(self,  devices=[], targetfile=None, fieldnames=None):
+    def __init__(self,  devices=[], AutoName=True, targetfile=None, fieldnames=None):
         super(FileWriterModel, self).__init__(devices)
+        if AutoName is True and targetfile is None:
+            #"Names data file with todays date. Does not override a provided targetfile name"
+            targetfile = self.autoname('isodate','csv')
 
         if fieldnames is None:
         #TODO get rid of this lazy hack
@@ -67,7 +70,16 @@ class FileWriterModel(Model):
 
         self.file = CSVFileWriter(self.fieldnames, targetfile)
         self.add_data_handler(self.file.write_event)
-
+        
+    def autoname(self, style='isodate', extension='csv'):
+        "returns new file name string with specified name style and extension."
+        new_file_name = None
+        if style == 'isodate':
+            today =  datetime.date.today()
+            name_string= today.strftime('%Y%m%d')
+            
+        new_file_name = name_string + '.' + extension
+        return new_file_name
 
 
 

@@ -5,6 +5,7 @@ import collections
 import modbus_tk.defines as MBUS
 from modbus_tk.modbus import ModbusInvalidResponseError
 import sys
+import struct
 
 import logging
 logger = logging.getLogger(__name__)
@@ -19,8 +20,10 @@ class Device(object):
 
 
     def getPV(self,*args, **kwargs):
-        #Should return process value for this device
-        return None
+        #Should return process value for this device as a dict
+        #Each key in the dict should describe it's value
+        #for single value devices, the key is usually the device name
+        return {self.name, None}
 
     @property
     def name(self):
@@ -97,21 +100,24 @@ class ModbusSlaveDevice(Device):
         self.query['registers_to_read'] = 1
 
         value = self.__poll()
+        reply = {}
         try:
-            return value[0] #unpack tuples and lists if possible
+            reply[self.name] = value[0] #unpack tuples and lists if possible
         except:
-            return value
+            reply[self.name] = value
+        
+        return reply
 
-    def getNamedRegister(self, reg_name):
+    def getNamedRegister(self, reg_name, num_of_registers=1):
         self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
         self.query['starting_register'] = self.registers[reg_name]
-        self.query['registers_to_read'] = 1
+        self.query['registers_to_read'] = num_of_registers
         return self.__poll()
 
-    def getRegisterAddress(self, reg_number):
+    def getRegisterAddress(self, reg_number, num_of_registers=1):
         self.query['function_code']     = MBUS.READ_HOLDING_REGISTERS
         self.query['starting_register'] = reg_number
-        self.query['registers_to_read'] = 1
+        self.query['registers_to_read'] = num_of_registers
         return self.__poll()
 
     @property
@@ -143,12 +149,72 @@ class SOLO4848(ModbusSlaveDevice):
             return self._name
 
     def getPV(self,*args,**kwargs):
-        value = super(SOLO4848, self).getPV(args, kwargs)
-        corrected_value = value * self.decimal_correction
-        return corrected_value
-        
+        reply = super(SOLO4848, self).getPV(args, kwargs)
+        corrected_value = reply[self.name] * self.decimal_correction
+        reply[self.name] = corrected_value
+        return reply
 
 
+class micromotion2700series(ModbusSlaveDevice):
+    def __init__(self,modbusExecuteFunc, SlaveID):
+        super(micromotion2700series, self).__init__(modbusExecuteFunc, SlaveID, registers = {}, address_offset=0)
+        self.registers = {
+            'Mass flow rate':1,
+            'Density':2,
+            'Temperature':3,
+            'Volume flow rate':4,
+            'Mass total':7,
+            'Volume total':8,
+            'Mass inventory':9,
+            'Volume inventory':10,
+            'Mass flow rate scale factor':28,
+            'Density scale factor':29,
+            'Temperature scale factor':30,
+            'Volume flow rate scale factor':31,
+            'Mass inventory scale factor':36
+            }
+
+
+    @property
+    def name(self):
+        if self._name is None:
+            return "Series2700 #%s" % self.address
+        else:
+            return self._name
+
+    def getPV(self, *args, **kwargs):
+        reply = {}
+        queries = ["Mass flow rate", 'Density', 'Temperature']
+        for each in queries:
+            data = self.get_named_PV(each, *args, **kwargs)
+            reply.update(data)
+        return reply
+
+
+    def get_named_PV(self, PV_name, scale_factor='Auto', scale_factor_name=None, *args, **kwargs):
+        try:
+            value = self.getRegisterAddress(self.registers[PV_name], 1)[0]
+        except:
+            value = None
+            traceback.print_exc()
+
+        try:
+            scale_factor_name = PV_name + " scale factor"
+            scale = self.getRegisterAddress(self.registers[scale_factor_name], 1)[0]
+        except:
+            scale = 1
+            traceback.print_exc()
+
+        reply = {PV_name: self.scale_process_value(value, scale)}
+        return reply
+
+    def scale_process_value(self, process_value, scale_value):
+        try:
+            float_value = float(process_value) / float(scale_value)
+        except:
+            #revise this section!!! Needs better error handling
+            float_value = process_value
+        return float_value
 
 
 class Dummy(Device):
@@ -167,7 +233,8 @@ class Dummy(Device):
         try:
             e.record = True
         finally:
-            return self._execute()
+            reply = {self.name: self._execute()}
+            return reply
 
 def MakeDevicesfromCfg(cfgfile, exec_fucntion):
     "returns a dict of devices initialized from the cfg file and function to reach physical media"
