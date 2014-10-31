@@ -182,34 +182,40 @@ class micromotion2700series(ModbusSlaveDevice):
         else:
             return self._name
 
-    def getPV(self,*args,**kwargs):
+    def getPV(self, *args, **kwargs):
         reply = {}
-        queries = ["Mass flow rate",'Density','Temperature']
+        queries = ["Mass flow rate", 'Density', 'Temperature']
         for each in queries:
             data = self.get_named_PV(each, *args, **kwargs)
             reply.update(data)
         return reply
 
 
-    def get_named_PV(self, PV_name, auto_scale=True, scale_factor_name=None,*args, **kwargs):
-        value = self.getRegisterAddress(self.registers[PV_name],1)[0]
+    def get_named_PV(self, PV_name, scale_factor='Auto', scale_factor_name=None, *args, **kwargs):
+        try:
+            value = self.getRegisterAddress(self.registers[PV_name], 1)[0]
+        except:
+            value = None
+            traceback.print_exc()
 
-        if auto_scale is True:
+        try:
             scale_factor_name = PV_name + " scale factor"
-
-        if scale_factor_name is not None:
-            #try:
-            scale = self.getRegisterAddress(self.registers[scale_factor_name],1)[0]
-            #except e:
-                #scale = 1
-        else:
+            scale = self.getRegisterAddress(self.registers[scale_factor_name], 1)[0]
+        except:
             scale = 1
-        logger.info("series2700 raw: %s scale: %s reported: %s" % (value,scale,self.scale_process_value(value, scale)))
+            traceback.print_exc()
+
         reply = {PV_name: self.scale_process_value(value, scale)}
         return reply
 
     def scale_process_value(self, process_value, scale_value):
-        return float(process_value)/float(scale_value)
+        try:
+            float_value = float(process_value) / float(scale_value)
+        except:
+            #revise this section!!! Needs better error handling
+            float_value = process_value
+        return float_value
+
 
 class Dummy(Device):
     """Thin class that just returns the value from socket function

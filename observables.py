@@ -68,18 +68,24 @@ class RecordingHeartbeat(Heartbeat):
         e = Event()
         e.source = self
         for k, v in attrs.iteritems():
-            #attach attributes passed to fire() to event
+            # attach attributes passed to fire() to event
             setattr(e, k, v)
         for fn in self.callbacks:
-            #pass event (w/ attrs) to functions
+            # pass event (w/ attrs) to functions
             reply = fn(e)
 
-
             try:
-                if hasattr(fn.im_self,'record'): #and fn.im_class.record == True:
-                    data = EventData(time.time(), fn.im_self,reply)
-                    self.output.put(data)
-                    logger.debug("Added to queue: %s,%s,%s" % data)
+                if hasattr(fn.im_self, 'record'):  # and fn.im_class.record == True:
+                    try:
+                        data.iterkeys()
+                        data = {'time': time.time(),
+                                'device': fn.im_self}
+                        data.update(reply)
+                    except:
+                        data = EventData(time.time(), fn.im_self, reply)
+                        self.output.put(data)
+                    finally:
+                        logger.debug("Added to queue: %s,%s,%s" % data)
             except AttributeError:
                 raise
             except:
