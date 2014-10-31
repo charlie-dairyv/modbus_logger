@@ -6,47 +6,50 @@ import time
 
 logger = logging.getLogger(__name__)
 
+EventData = namedtuple('EventData', ['time', 'device', 'value'])
 
-EventData = namedtuple('EventData',['time', 'device', 'value'])
 
 class Event(object):
+    @property
     def __str__(self):
-        return self.__dict__.__str__()
+        return self.__dict__.__str__
+
 
 class Observable(object):
     def __init__(self):
         self.callbacks = []
 
-    def subscribe(self, callback, parent=None):
+    def subscribe(self, callback):
         logger.debug("Subscibing %s to %s" % (callback, self))
         self.callbacks.append(callback)
-
 
     def unsubscribe(self, callback):
         self.callbacks.remove(callback)
         logger.debug("Callbacks of %s:\n\t\t\t\t %s" % (self, self.callbacks))
 
-
     def fire(self, **attrs):
         e = Event()
         e.source = self
         for k, v in attrs.iteritems():
-            #attach attributes passed to fire() to event
+            # attach attributes passed to fire() to event
             setattr(e, k, v)
         for fn in self.callbacks:
-            #pass event (w/ attrs) to functions
+            # pass event (w/ attrs) to functions
             try:
                 fn(e)
             except e:
-                logger.error("Firing %s has produced the error: %s" % (fn,e))
+                logger.error("Firing %s has produced the error: %s" % (fn, e))
                 raise
+
 
 class Heartbeat(Observable):
     def __init__(self, interval=1, **kwargs):
         super(Heartbeat, self).__init__()
         self.interval = interval
         self.kwargs = kwargs
-    #TODO Move threading code inside of class
+
+    # TODO Move threading code inside of class
+
     def run(self):
         while True:
             try:
@@ -57,8 +60,10 @@ class Heartbeat(Observable):
             finally:
                 time.sleep(self.interval)
 
+
+# noinspection PyUnresolvedReferences
 class RecordingHeartbeat(Heartbeat):
-    def __init__(self, output_q=Queue.Queue(),interval=1, **kwargs):
+    def __init__(self, output_q=Queue.Queue(), interval=1, **kwargs):
         super(RecordingHeartbeat, self).__init__()
         self.interval = interval
         self.kwargs = kwargs
@@ -96,16 +101,17 @@ class QueueDispatcher(Observable):
     def __init__(self, queue_to_empty):
         super(QueueDispatcher, self).__init__()
         self.inputQueue = queue_to_empty
+        self.data = None
 
     def dispatch_item(self):
-            self.data = self.inputQueue.get()
-            #logger.debug("Processing from queue:\t %s" % self.data._asdict())
-            self.fire(**self.data._asdict())     #**{"data":self.data}
-            self.inputQueue.task_done()
+        self.data = self.inputQueue.get()
+        # logger.debug("Processing from queue:\t %s" % self.data._asdict())
+        self.fire(**self.data._asdict())  # **{"data":self.data}
+        self.inputQueue.task_done()
 
     def dispatch_all(self, quantity=0):
-            if quantity==0 or type(quantity) != int:
-                logger.debug("Dispatching %s items from output queue" % self.inputQueue.qsize())
-                quantity = self.inputQueue.qsize()
-            for i in range(quantity):
-                self.dispatch_item()
+        if quantity == 0 or type(quantity) != int:
+            logger.debug("Dispatching %s items from output queue" % self.inputQueue.qsize())
+            quantity = self.inputQueue.qsize()
+        for i in range(quantity):
+            self.dispatch_item()
