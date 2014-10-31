@@ -6,28 +6,46 @@ import modbus_tk.modbus_rtu as tkRtu
 import modbus_tk.modbus as modbus
 import logging
 from SOLOregisters import holding_registers as SOLOregister
-slavesArr = [1,2,3,4,5,6,7,8]
-iterSp = 2
+
+slavesArr = [12]
+iterSp = 1
 regsSp = 100
-#portNbr = 21
+# portNbr = 21
 #portName = '/dev/cu.usbserial-A603IXGL'
 #baudrate = 153600
 
 ser = serial.Serial(
-	port='/dev/tty.usbserial-A603IXGL',
-	baudrate=9600,
-	parity=serial.PARITY_EVEN,
-	stopbits=serial.STOPBITS_ONE,
-	bytesize=serial.EIGHTBITS
+    port='/dev/tty.usbserial-A603IXGL',
+    baudrate=9600,
+    parity=serial.PARITY_EVEN,
+    stopbits=serial.STOPBITS_ONE,
+    bytesize=serial.EIGHTBITS
 )
 
-ModbusExceptions = {'1':"ILLEGAL_FUNCTION",
-'2':"ILLEGAL_DATA_ADDRESS",
-'3':"ILLEGAL_DATA_VALUE",
-'4':"SLAVE_DEVICE_FAILURE",
-'5':"COMMAND_ACKNOWLEDGE",
-'6':"SLAVE_DEVICE_BUSY",
-'8':"MEMORY_PARITY_ERROR"}
+ModbusExceptions = {'1': "ILLEGAL_FUNCTION",
+                    '2': "ILLEGAL_DATA_ADDRESS",
+                    '3': "ILLEGAL_DATA_VALUE",
+                    '4': "SLAVE_DEVICE_FAILURE",
+                    '5': "COMMAND_ACKNOWLEDGE",
+                    '6': "SLAVE_DEVICE_BUSY",
+                    '8': "MEMORY_PARITY_ERROR"}
+
+registers = {
+    'Mass flow rate': 1,
+    'Density': 2,
+    'Temperature': 3,
+    'Volume flow rate': 4,
+    'Mass total': 7,
+    'Volume total': 8,
+    'Mass inventory': 9,
+    'Volume inventory': 10,
+    'Mass flow rate scale factor': 28,
+    'Density scale factor': 29,
+    'Temperature scale factor': 30,
+    'Volume flow rate scale factor': 31,
+    'Mass inventory scale factor': 36
+}
+
 
 #SOLOregister = {"PV":4096,
 #    "LED_STATUS":4138}
@@ -39,10 +57,9 @@ logging.basicConfig(level=logging.DEBUG,
                     filename='logga.log',
                     filemode='w')
 
-timeoutSp=0.018 + regsSp*.001
+timeoutSp = 0.018 + regsSp * .001
 logging.info("----- Starting new run -----")
 logging.info("timeout: %s [s]" % timeoutSp)
-
 
 ser.flush()
 tkmc = tkRtu.RtuMaster(ser)
@@ -51,27 +68,46 @@ tkmc.set_timeout(timeoutSp)
 errCnt = 0
 startTs = time.time()
 for i in range(iterSp):
-  for slaveId in slavesArr:
-    try:
-        reply = tkmc.execute(slaveId, tkCst.READ_HOLDING_REGISTERS, SOLOregister["PV"],1)
-        print "Unit %s: %s" % (slaveId, reply)
-        logging.info("Unit %s: %s" % (slaveId, reply))
-    except modbus.ModbusInvalidResponseError, e:
-        errCnt += 1
-        logging.warning("Unit %s: Modbus Invalid Response Error: %s" % (slaveId,e))
-    except modbus.ModbusError, e:
-        exception = ModbusExceptions[e.get_exception_code]
-        logging.warning("Unit %s: Modbus Exception: %s" % (slaveId, exception))
-    except Exception, e:
-        print "Unexpcted Error: ", e
-        logging.error("---- Terminating:  Unhandled Error: ",e)
-        raise
-    finally:
-        ser.flush()
+    for slaveId in slavesArr:
+        try:
+            TGT = registers['Temperature scale factor']
+            print "Target is register %s" % TGT
+
+            reply = tkmc.execute(slaveId, tkCst.READ_HOLDING_REGISTERS, TGT, 1)
+            print "Unit %s: %s" % (slaveId, reply)
+            logging.info("Unit %s: %s" % (slaveId, reply))
+
+            reply = tkmc.execute(slaveId, tkCst.WRITE_SINGLE_REGISTER, TGT, output_value=1000)
+            print "Unit %s: %s" % (slaveId, reply)
+            logging.info("Unit %s: %s" % (slaveId, reply))
+
+            reply = tkmc.execute(slaveId, tkCst.READ_HOLDING_REGISTERS, TGT, 1)
+            print "Unit %s: %s" % (slaveId, reply)
+            logging.info("Unit %s: %s" % (slaveId, reply))
+
+            reply = tkmc.execute(slaveId, tkCst.READ_HOLDING_REGISTERS, 1, 16)
+            print "Unit %s: %s" % (slaveId, reply)
+            logging.info("Unit %s: %s" % (slaveId, reply))
+        except modbus.ModbusInvalidResponseError, e:
+            errCnt += 1
+            logging.warning("Unit %s: Modbus Invalid Response Error: %s" % (slaveId, e))
+        except modbus.ModbusError, e:
+            exception = ModbusExceptions[e.get_exception_code]
+            logging.warning("Unit %s: Modbus Exception: %s" % (slaveId, exception))
+        except Exception, e:
+            print "Unexpcted Error: ", e
+            logging.error("---- Terminating:  Unhandled Error: ", e)
+            raise
+        finally:
+            ser.flush()
+
 stopTs = time.time()
-timeDiff = stopTs  - startTs
-print("modbus-tk:\ttime to read %s x %s (x %s regs): %.3f [s] / %.3f [s/req]" % (len(slavesArr),iterSp, regsSp, timeDiff, timeDiff/iterSp))
-if errCnt >0:
+timeDiff = stopTs - startTs
+
+print("modbus-tk:\ttime to read %s x %s (x %s regs): %.3f [s] / %.3f [s/req]" % (
+    len(slavesArr), iterSp, regsSp, timeDiff, timeDiff / iterSp))
+
+if errCnt > 0:
     print("   !modbus-tk:\terrCnt: %s; last tb: %s" % (errCnt, e))
 tkmc.close()
 
